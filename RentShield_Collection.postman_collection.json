@@ -1,0 +1,198 @@
+{
+	"info": {
+		"_postman_id": "r3nt-sh13ld-mast3r-c0ll3ct10n",
+		"name": "RentShield Platform [Master API]",
+		"description": "Comprehensive API collection for RentShield Platform. Includes Identity, Financing, Marketplace, Legal, and Community modules.\n\nVariables required:\n- baseUrl: http://localhost:4000/api\n- token: Bearer token for access\n- tempToken: Bearer token for 2FA stage",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "01. Identity & Security",
+			"item": [
+				{
+					"name": "Register (Auto-Login)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"password\": \"password123\",\n    \"firstName\": \"Demo\",\n    \"lastName\": \"User\",\n    \"role\": \"TENANT\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+					}
+				},
+				{
+					"name": "Login (Stage 1)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"password\": \"password123\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+					}
+				},
+				{
+					"name": "Verify 2FA (Stage 2)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{tempToken}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"123456\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/auth/verify-2fa", "host": ["{{baseUrl}}"], "path": ["auth", "verify-2fa"] }
+					}
+				},
+				{
+					"name": "Update Profile/Settings",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"firstName\": \"UpdatedName\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/auth/settings", "host": ["{{baseUrl}}"], "path": ["auth", "settings"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "02. Property Discovery",
+			"item": [
+				{
+					"name": "Search Properties",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/properties?city=Mumbai&minPrice=10000",
+							"host": ["{{baseUrl}}"],
+							"path": ["properties"],
+							"query": [
+								{ "key": "city", "value": "Mumbai" },
+								{ "key": "minPrice", "value": "10000" }
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "03. Payment Vault",
+			"item": [
+				{
+					"name": "List Due Payments",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}" }
+						],
+						"url": { "raw": "{{baseUrl}}/payments/due", "host": ["{{baseUrl}}"], "path": ["payments", "due"] }
+					}
+				},
+				{
+					"name": "Pay Partial/Full Rent",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"amount\": 5000\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/payments/{{paymentId}}/pay", "host": ["{{baseUrl}}"], "path": ["payments", "{{paymentId}}", "pay"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "04. Smart Agreements",
+			"item": [
+				{
+					"name": "Generate Agreement",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tenancyId\": \"{{tenancyId}}\",\n    \"templateId\": \"{{templateId}}\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/agreements/generate", "host": ["{{baseUrl}}"], "path": ["agreements", "generate"] }
+					}
+				},
+				{
+					"name": "Sign Agreement (Draw/Type)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"agreementId\": \"{{agreementId}}\",\n    \"type\": \"DRAW\",\n    \"signatureData\": \"data:image/png;base64,iVBORw0KG...\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/agreements/sign", "host": ["{{baseUrl}}"], "path": ["agreements", "sign"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "05. Society Ecosystem",
+			"item": [
+				{
+					"name": "List Upcoming Events",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}" }
+						],
+						"url": { "raw": "{{baseUrl}}/societies/{{societyId}}/events", "host": ["{{baseUrl}}"], "path": ["societies", "{{societyId}}", "events"] }
+					}
+				},
+				{
+					"name": "Book Amenity (e.g. Gym)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"amenityId\": \"{{amenityId}}\",\n    \"startTime\": \"2026-05-15T10:00:00Z\",\n    \"endTime\": \"2026-05-15T11:00:00Z\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/societies/{{societyId}}/amenities/book", "host": ["{{baseUrl}}"], "path": ["societies", "{{societyId}}", "amenities", "book"] }
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{ "key": "baseUrl", "value": "http://localhost:4000/api" },
+		{ "key": "token", "value": "PASTE_YOUR_FULL_TOKEN_HERE" },
+		{ "key": "tempToken", "value": "PASTE_PREAUTH_TOKEN_HERE" },
+		{ "key": "paymentId", "value": "" },
+		{ "key": "societyId", "value": "" },
+		{ "key": "tenancyId", "value": "" },
+		{ "key": "templateId", "value": "" },
+		{ "key": "agreementId" , "value": "" },
+		{ "key": "amenityId" , "value": "" }
+	]
+}

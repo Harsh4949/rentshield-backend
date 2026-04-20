@@ -1,0 +1,1100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  TENANT
+  LANDLORD
+  SERVICE_PROVIDER
+  SOCIETY_ADMIN
+  PLATFORM_ADMIN
+  SUPPORT_AGENT
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      UserRole @default(TENANT)
+  isActive  Boolean  @default(true)
+  is2faEnabled Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  properties          Property[]
+  userSubscriptions   UserSubscription[]
+  kyc                 Kyc?
+  documents           Document[]
+  tenanciesAsTenant   Tenancy[]            @relation("TenantTenancies")
+  maintenanceRequests MaintenanceRequest[]
+  refreshTokens       RefreshToken[]
+  auditLogs           AuditLog[]
+  notifications       Notification[]
+  chatParticipants    ChatParticipant[]
+  messages            Message[]
+  disputesAsTenant    Dispute[]             @relation("TenantDisputes")
+  disputesAsLandlord  Dispute[]             @relation("LandlordDisputes")
+  disputeEvents       DisputeEvent[]
+  supportTickets      SupportTicket[]       @relation("UserTickets")
+  assignedTickets     SupportTicket[]       @relation("AssignedTickets")
+  ticketMessages      SupportTicketMessage[] @relation("TicketMessages")
+  managedSocieties    Society[]             @relation("SocietyAdmins")
+  noticesCreated      Notice[]              @relation("NoticesCreated")
+  noticesRead         NoticeRead[]
+  bookmarks           Bookmark[]
+  interests           PropertyInterest[]
+  expertProfile       ServiceExpert?
+  serviceBookings     ServiceBooking[]
+  serviceReviews      ServiceReview[]
+  agreementSignatures AgreementSignature[]
+  amenityBookings     AmenityBooking[]
+  otpSessions         OtpSession[]
+
+  @@map("User")
+}
+
+enum OtpType {
+  LOGIN
+  PASSWORD_RESET
+}
+
+model OtpSession {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code      String
+  type      OtpType  @default(LOGIN)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("OtpSession")
+}
+
+model Module {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  label     String?
+  isActive  Boolean   @default(true)
+  features  Feature[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("Module")
+}
+
+model Feature {
+  id                   String                @id @default(uuid())
+  name                 String                @unique
+  description          String?
+  moduleId             String
+  module               Module                @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  roleFeatures         RoleFeature[]
+  subscriptionFeatures SubscriptionFeature[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@map("Feature")
+}
+
+model RoleFeature {
+  role      UserRole
+  featureId String
+  feature   Feature  @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@id([role, featureId])
+  @@map("RoleFeature")
+}
+
+model Subscription {
+  id                   String                @id @default(uuid())
+  name                 String                @unique
+  description          String?
+  userSubscriptions    UserSubscription[]
+  subscriptionFeatures SubscriptionFeature[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@map("Subscription")
+}
+
+model SubscriptionFeature {
+  subscriptionId String
+  featureId      String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  feature        Feature      @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@id([subscriptionId, featureId])
+  @@map("SubscriptionFeature")
+}
+
+model UserSubscription {
+  id             String       @id @default(uuid())
+  userId         String
+  subscriptionId String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@map("UserSubscription")
+}
+
+model Property {
+  id            String           @id @default(uuid())
+  title         String
+  description   String
+  address       String
+  city          String
+  state         String
+  postalCode    String
+  price         Int
+  bedrooms      Int
+  bathrooms     Float
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  isPublished   Boolean          @default(false)
+  category      PropertyCategory @default(APARTMENT)
+  furnishing    FurnishingStatus @default(UNFURNISHED)
+  photoUrls     String[]         @default([])
+  amenities     String[]         @default([])
+  availableFrom DateTime?
+  lat           Float?
+  lng           Float?
+
+  // Relations
+  ownerId    String
+  owner      User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tenancies  Tenancy[]
+  societyId  String?
+  society    Society?           @relation(fields: [societyId], references: [id], onDelete: SetNull)
+  buildingId String?
+  building   SocietyBuilding?   @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  bookmarks  Bookmark[]
+  interests  PropertyInterest[]
+
+  @@map("Property")
+}
+
+enum PropertyCategory {
+  APARTMENT
+  VILLA
+  INDEPENDENT_HOUSE
+  PG
+  OFFICE
+  SHOP
+}
+
+enum FurnishingStatus {
+  UNFURNISHED
+  SEMI_FURNISHED
+  FURNISHED
+}
+
+model Bookmark {
+  id         String   @id @default(uuid())
+  userId     String
+  propertyId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, propertyId])
+  @@map("Bookmark")
+}
+
+model PropertyInterest {
+  id         String   @id @default(uuid())
+  propertyId String
+  tenantId   String
+  status     String   @default("PENDING") // PENDING, CONTACTED, CLOSED
+  notes      String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenant   User     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("PropertyInterest")
+}
+
+enum KycStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+model Kyc {
+  id           String        @id @default(uuid())
+  userId       String        @unique
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status       KycStatus     @default(NOT_STARTED)
+  documents    KycDocument[]
+  selfieUrl    String?
+  livenessData Json?
+  submittedAt  DateTime?
+  reviewedAt   DateTime?
+  reviewedBy   String?
+  notes        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("Kyc")
+}
+
+model KycDocument {
+  id        String   @id @default(uuid())
+  kycId     String
+  kyc       Kyc      @relation(fields: [kycId], references: [id], onDelete: Cascade)
+  type      String // e.g., 'AADHAR', 'PAN', 'PASSPORT'
+  fileUrl   String
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("KycDocument")
+}
+
+enum DocumentCategory {
+  AGREEMENTS
+  KYC
+  PAYMENTS
+  MOVE_IN
+  EXIT
+  SOCIETY
+  OTHER
+}
+
+enum DocumentPermission {
+  OWNER_ONLY
+  TENANT_LANDLORD
+  ALL_PARTIES
+  PUBLIC
+}
+
+model Document {
+  id         String             @id @default(uuid())
+  userId     String
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenancyId  String? // Link to tenancy if applicable
+  tenancy    Tenancy?           @relation(fields: [tenancyId], references: [id], onDelete: SetNull)
+  category   DocumentCategory
+  name       String
+  fileUrl    String
+  fileType   String // MIME type
+  fileSize        Int
+  permission      DocumentPermission @default(OWNER_ONLY)
+  expiryDate      DateTime?
+  isAutoGenerated Boolean            @default(false)
+  ocrMetadata     Json?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@map("Document")
+}
+
+model AgreementTemplate {
+  id           String   @id @default(uuid())
+  name         String
+  state        String?
+  city         String?
+  propertyType String?
+  content      String   @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  agreements   Agreement[]
+
+  @@map("AgreementTemplate")
+}
+
+enum AgreementStatus {
+  DRAFT
+  SIGNING
+  SIGNED
+  REGISTERED
+  CANCELLED
+}
+
+model Agreement {
+  id           String             @id @default(uuid())
+  tenancyId    String?            @unique
+  tenancy      Tenancy?           @relation(fields: [tenancyId], references: [id], onDelete: SetNull)
+  templateId   String
+  template     AgreementTemplate @relation(fields: [templateId], references: [id])
+  status       AgreementStatus    @default(DRAFT)
+  version      Int                @default(1)
+  stampingId   String?
+  isStamped    Boolean            @default(false)
+  finalPdfUrl  String?
+  signatures   AgreementSignature[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@map("Agreement")
+}
+
+enum SignatureType {
+  TYPE
+  DRAW
+}
+
+model AgreementSignature {
+  id            String        @id @default(uuid())
+  agreementId   String
+  agreement     Agreement     @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  signatureType SignatureType @default(TYPE)
+  signatureData String        @db.Text
+  signedAt      DateTime      @default(now())
+
+  @@unique([agreementId, userId])
+  @@map("AgreementSignature")
+}
+
+model SocietyEvent {
+  id          String   @id @default(uuid())
+  societyId   String
+  society     Society  @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  title       String
+  description String?  @db.Text
+  scheduledAt DateTime
+  venue       String?
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("SocietyEvent")
+}
+
+model SocietyAmenity {
+  id                String           @id @default(uuid())
+  societyId         String
+  society           Society          @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  name              String
+  description       String?          @db.Text
+  maxDurationHours  Int?             @default(2)
+  rules             String?          @db.Text
+  bookings          AmenityBooking[]
+
+  @@map("SocietyAmenity")
+}
+
+enum AmenityBookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model AmenityBooking {
+  id         String         @id @default(uuid())
+  amenityId  String
+  amenity    SocietyAmenity @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User           @relation(fields: [userId], references: [id])
+  startTime  DateTime
+  endTime    DateTime
+  status     AmenityBookingStatus  @default(PENDING)
+  createdAt  DateTime       @default(now())
+
+  @@map("AmenityBooking")
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  OVERDUE
+  PARTIALLY_PAID
+}
+
+enum PaymentType {
+  RENT
+  DEPOSIT
+  LATE_FEE
+  MAINTENANCE
+  OTHER
+}
+
+model PaymentPlan {
+  id            String   @id @default(uuid())
+  tenancyId     String   @unique // Link to tenancy
+  tenancy       Tenancy  @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+  rentAmount    Float
+  dueDay        Int // Day of month
+  depositAmount Float
+  lateFeeAmount Float?
+  lateFeeDays   Int? // Days after due date to apply late fee
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  payments Payment[]
+
+  @@map("PaymentPlan")
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  planId         String
+  plan           PaymentPlan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+  type           PaymentType
+  amount         Float
+  amountPaid     Float         @default(0)
+  balanceDue     Float
+  dueDate        DateTime
+  paidDate       DateTime?
+  status         PaymentStatus @default(PENDING)
+  gatewayOrderId String?
+  receiptUrl     String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  ledgerEntries   LedgerEntry[]
+  disputes        Dispute[]
+  serviceBookings ServiceBooking[]
+
+  @@map("Payment")
+}
+
+model LedgerEntry {
+  id          String   @id @default(uuid())
+  paymentId   String?
+  payment     Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  tenancyId   String
+  tenancy     Tenancy  @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+  type        String // 'DEBIT' or 'CREDIT'
+  amount      Float
+  description String
+  balance     Float // Running balance
+  createdAt   DateTime @default(now())
+
+  @@map("LedgerEntry")
+}
+
+enum TenancyStatus {
+  ACTIVE
+  UPCOMING
+  TERMINATED
+  EXPIRED
+}
+
+model Tenancy {
+  id            String        @id @default(uuid())
+  propertyId    String
+  tenantId      String
+  startDate     DateTime
+  endDate       DateTime?
+  status        TenancyStatus @default(ACTIVE)
+  rentAmount    Float
+  depositAmount Float
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  property            Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenant              User                 @relation("TenantTenancies", fields: [tenantId], references: [id], onDelete: Cascade)
+  paymentPlan         PaymentPlan?
+  documents           Document[]
+  ledgerEntries       LedgerEntry[]
+  maintenanceRequests MaintenanceRequest[]
+  chatSessions        ChatSession[]
+  disputes            Dispute[]
+  moveIn              MoveIn?
+  exitRequest         ExitRequest?
+  agreement           Agreement?
+
+  @@map("Tenancy")
+}
+
+enum MaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model MaintenanceRequest {
+  id          String            @id @default(uuid())
+  tenancyId   String
+  tenantId    String
+  title       String
+  description String
+  status      MaintenanceStatus @default(OPEN)
+  priority    String            @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relations
+  tenancy      Tenancy       @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+  tenant       User          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chatSessions ChatSession[]
+  disputes     Dispute[]
+
+  @@map("MaintenanceRequest")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("RefreshToken")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String
+  action      String
+  resource    String
+  resourceId  String?
+  beforeState Json?
+  afterState  Json?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("AuditLog")
+}
+
+enum NotificationType {
+  EMAIL
+  SMS
+  IN_APP
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false)
+  sentAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("Notification")
+}
+
+model ChatSession {
+  id                   String              @id @default(uuid())
+  tenancyId            String?
+  maintenanceRequestId String?
+  bookingId            String? @unique
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  tenancy              Tenancy?            @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+  maintenanceRequest   MaintenanceRequest? @relation(fields: [maintenanceRequestId], references: [id], onDelete: Cascade)
+  serviceBooking       ServiceBooking?     @relation("BookingChat")
+  messages             Message[]
+  participants         ChatParticipant[]
+
+  @@map("ChatSession")
+}
+
+model ChatParticipant {
+  id            String      @id @default(uuid())
+  chatSessionId String
+  userId        String
+  joinedAt      DateTime    @default(now())
+
+  chatSession   ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatSessionId, userId])
+  @@map("ChatParticipant")
+}
+
+model Message {
+  id            String      @id @default(uuid())
+  chatSessionId String
+  senderId      String
+  content       String      @db.Text
+  createdAt     DateTime    @default(now())
+  read          Boolean     @default(false) 
+
+  chatSession   ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+  sender        User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("Message")
+}
+
+enum DisputeCategory {
+  RENT_PAYMENT
+  MAINTENANCE
+  DEPOSIT
+  EXIT
+  OTHER
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  MEDIATION
+  RESOLVED
+  ESCALATED
+  CLOSED
+}
+
+enum DisputeEventType {
+  CREATED
+  ASSIGNED
+  MESSAGE
+  PROPOSAL
+  DECISION
+  CLOSED
+}
+
+model Dispute {
+  id                   String              @id @default(uuid())
+  categoryId           DisputeCategory     @default(OTHER)
+  status               DisputeStatus       @default(OPEN)
+  description          String              @db.Text
+  evidenceUrls         String[]            @default([])
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  tenantId             String
+  landlordId           String
+  tenancyId            String
+  paymentId            String?
+  maintenanceRequestId String?
+
+  tenant               User                @relation("TenantDisputes", fields: [tenantId], references: [id], onDelete: Cascade)
+  landlord             User                @relation("LandlordDisputes", fields: [landlordId], references: [id], onDelete: Cascade)
+  tenancy              Tenancy             @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+  payment              Payment?            @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  maintenanceRequest   MaintenanceRequest? @relation(fields: [maintenanceRequestId], references: [id], onDelete: SetNull)
+  events               DisputeEvent[]
+
+  @@map("Dispute")
+}
+
+model DisputeEvent {
+  id        String           @id @default(uuid())
+  disputeId String
+  actorId   String
+  eventType DisputeEventType
+  details   Json?
+  createdAt DateTime         @default(now())
+
+  dispute   Dispute          @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  actor     User             @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@map("DisputeEvent")
+}
+
+// ─────────────────────────────────────────────
+// Support Hub
+// ─────────────────────────────────────────────
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_ON_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum SupportTicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model KbArticle {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  category    String
+  content     String   @db.Text
+  isPublished Boolean  @default(false)
+  helpful     Int      @default(0)
+  notHelpful  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("KbArticle")
+}
+
+model SupportTicket {
+  id          String                @id @default(uuid())
+  userId      String
+  topic       String
+  description String                @db.Text
+  status      SupportTicketStatus   @default(OPEN)
+  priority    SupportTicketPriority @default(NORMAL)
+  assigneeId  String?
+  closedAt    DateTime?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  user        User                  @relation("UserTickets", fields: [userId], references: [id], onDelete: Cascade)
+  assignee    User?                 @relation("AssignedTickets", fields: [assigneeId], references: [id], onDelete: SetNull)
+  messages    SupportTicketMessage[]
+  csat        SupportTicketCsat?
+
+  @@map("SupportTicket")
+}
+
+model SupportTicketMessage {
+  id        String        @id @default(uuid())
+  ticketId  String
+  senderId  String
+  content   String        @db.Text
+  createdAt DateTime      @default(now())
+
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender    User          @relation("TicketMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("SupportTicketMessage")
+}
+
+model SupportTicketCsat {
+  id        String        @id @default(uuid())
+  ticketId  String        @unique
+  rating    Int           // 1-5
+  comment   String?
+  createdAt DateTime      @default(now())
+
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("SupportTicketCsat")
+}
+
+// ─────────────────────────────────────────────
+// Move-in
+// ─────────────────────────────────────────────
+
+enum MoveInStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ChecklistItemStatus {
+  PENDING
+  COMPLETED
+  FLAGGED
+}
+
+model MoveIn {
+  id          String       @id @default(uuid())
+  tenancyId   String       @unique
+  scheduledAt DateTime
+  status      MoveInStatus @default(SCHEDULED)
+  notes       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  tenancy     Tenancy      @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+  checklist   MoveInChecklistItem[]
+  inspections MoveInInspection[]
+
+  @@map("MoveIn")
+}
+
+model MoveInChecklistItem {
+  id          String              @id @default(uuid())
+  moveInId    String
+  label       String
+  status      ChecklistItemStatus @default(PENDING)
+  notes       String?
+  completedAt DateTime?
+  createdAt   DateTime            @default(now())
+
+  moveIn      MoveIn              @relation(fields: [moveInId], references: [id], onDelete: Cascade)
+
+  @@map("MoveInChecklistItem")
+}
+
+model MoveInInspection {
+  id           String   @id @default(uuid())
+  moveInId     String
+  room         String
+  itemName     String
+  condition    String   // e.g. GOOD, FAIR, DAMAGED
+  notes        String?
+  photoUrls    String[] @default([])
+  createdAt    DateTime @default(now())
+
+  moveIn       MoveIn   @relation(fields: [moveInId], references: [id], onDelete: Cascade)
+
+  @@map("MoveInInspection")
+}
+
+// ─────────────────────────────────────────────
+// Exit
+// ─────────────────────────────────────────────
+
+enum ExitStatus {
+  REQUESTED
+  APPROVED
+  DATE_PROPOSED
+  INSPECTION_PENDING
+  SETTLEMENT_PENDING
+  CLOSED
+  REJECTED
+}
+
+model ExitRequest {
+  id                  String      @id @default(uuid())
+  tenancyId           String      @unique
+  desiredMoveOutDate  DateTime
+  reason              String      @db.Text
+  comments            String?
+  status              ExitStatus  @default(REQUESTED)
+  landlordNotes       String?
+  alternateDate       DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  tenancy             Tenancy     @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+  inspectionItems     ExitInspectionItem[]
+  settlement          ExitSettlement?
+
+  @@map("ExitRequest")
+}
+
+model ExitInspectionItem {
+  id            String      @id @default(uuid())
+  exitRequestId String
+  room          String
+  itemName      String
+  moveInCondition String
+  moveOutCondition String
+  proposedCharge Float       @default(0)
+  photoUrls     String[]    @default([])
+  notes         String?
+  createdAt     DateTime    @default(now())
+
+  exitRequest   ExitRequest @relation(fields: [exitRequestId], references: [id], onDelete: Cascade)
+
+  @@map("ExitInspectionItem")
+}
+
+model ExitSettlement {
+  id                String      @id @default(uuid())
+  exitRequestId     String      @unique
+  rentOutstanding   Float       @default(0)
+  utilityCharges    Float       @default(0)
+  damageCharges     Float       @default(0)
+  depositAmount     Float
+  refundAmount      Float
+  tenantAccepted    Boolean?
+  landlordAccepted  Boolean?
+  acceptedAt        DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  exitRequest       ExitRequest @relation(fields: [exitRequestId], references: [id], onDelete: Cascade)
+
+  @@map("ExitSettlement")
+}
+
+// ─────────────────────────────────────────────
+// Society & NoticeBoard
+// ─────────────────────────────────────────────
+
+model Society {
+  id                String             @id @default(uuid())
+  name              String
+  address           String
+  city              String
+  state             String
+  postalCode        String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  buildings         SocietyBuilding[]
+  rules             SocietyRule[]
+  emergencyContacts EmergencyContact[]
+  notices           Notice[]
+  properties        Property[]
+  admins            User[]             @relation("SocietyAdmins")
+  experts           ServiceExpert[]
+  events            SocietyEvent[]
+  amenities         SocietyAmenity[]
+
+  @@map("Society")
+}
+
+model SocietyBuilding {
+  id                String             @id @default(uuid())
+  societyId         String
+  name              String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  society           Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  emergencyContacts EmergencyContact[]
+  properties        Property[]
+  notices           Notice[]
+
+  @@map("SocietyBuilding")
+}
+
+model SocietyRule {
+  id          String   @id @default(uuid())
+  societyId   String
+  category    String   // e.g., 'SECURITY', 'MAINTENANCE', 'PETS'
+  title       String
+  content     String   @db.Text
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  society     Society  @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  @@map("SocietyRule")
+}
+
+model EmergencyContact {
+  id          String   @id @default(uuid())
+  societyId   String?
+  buildingId  String?
+  name        String
+  phone       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  society     Society?          @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  building    SocietyBuilding?  @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  @@map("EmergencyContact")
+}
+
+enum NoticeType {
+  INFO
+  WARNING
+  URGENT
+}
+
+model Notice {
+  id          String           @id @default(uuid())
+  title       String
+  content     String           @db.Text
+  type        NoticeType       @default(INFO)
+  category    String?
+  isPinned    Boolean          @default(false)
+  expiryDate  DateTime?
+  societyId   String?
+  buildingId  String?
+  createdById String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  society     Society?         @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  building    SocietyBuilding? @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  createdBy   User             @relation("NoticesCreated", fields: [createdById], references: [id])
+  readBy      NoticeRead[]
+
+  @@map("Notice")
+}
+
+model NoticeRead {
+  id        String   @id @default(uuid())
+  userId    String
+  noticeId  String
+  readAt    DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notice    Notice   @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, noticeId])
+  @@map("NoticeRead")
+}
+
+model ServiceCategory {
+  id        String          @id @default(uuid())
+  name      String          @unique
+  slug      String          @unique
+  iconUrl   String?
+  experts   ServiceExpert[]
+  createdAt DateTime        @default(now())
+
+  @@map("ServiceCategory")
+}
+
+model ServiceExpert {
+  id              String           @id @default(uuid())
+  userId          String           @unique
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId      String
+  category        ServiceCategory  @relation(fields: [categoryId], references: [id])
+  bio             String           @db.Text
+  isVerified      Boolean          @default(false)
+  experienceYears Int              @default(1)
+  hourlyRate      Float?
+  rating          Float            @default(0)
+  totalReviews    Int              @default(0)
+  societyId       String?
+  society         Society?         @relation(fields: [societyId], references: [id], onDelete: SetNull)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  bookings        ServiceBooking[]
+  reviews         ServiceReview[]
+
+  @@map("ServiceExpert")
+}
+
+enum BookingStatus {
+  REQUESTED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+model ServiceBooking {
+  id               String          @id @default(uuid())
+  tenantId         String
+  expertId         String
+  status           BookingStatus   @default(REQUESTED)
+  description      String          @db.Text
+  scheduledAt      DateTime
+  finalPrice       Float?
+  paymentId        String?
+  payment          Payment?        @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  chatSessionId    String?         @unique
+  chatSession      ChatSession?    @relation("BookingChat", fields: [chatSessionId], references: [id])
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  tenant           User            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  expert           ServiceExpert   @relation(fields: [expertId], references: [id], onDelete: Cascade)
+
+  @@map("ServiceBooking")
+}
+
+model ServiceReview {
+  id        String        @id @default(uuid())
+  tenantId  String
+  expertId  String
+  rating    Int           // 1-5
+  comment   String?       @db.Text
+  createdAt DateTime      @default(now())
+
+  tenant    User          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  expert    ServiceExpert @relation(fields: [expertId], references: [id], onDelete: Cascade)
+
+  @@map("ServiceReview")
+}
