@@ -93,6 +93,15 @@ export const moveInService = {
       throw new Error(`${pendingItems.length} checklist item(s) still pending. Complete all items before sign-off.`);
     }
 
+    // Enforce Police Verification
+    const verification = await prisma.policeVerification.findUnique({
+      where: { tenancyId: moveIn.tenancyId },
+    });
+
+    if (!verification || verification.status !== 'VERIFIED') {
+      throw new Error('Mandatory Police Verification is not yet completed or approved.');
+    }
+
     return prisma.moveIn.update({
       where: { id: moveInId },
       data: { status: 'COMPLETED' },

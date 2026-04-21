@@ -232,6 +232,16 @@ enum KycStatus {
   REJECTED
 }
 
+enum PoliceVerificationStatus {
+  NOT_STARTED
+  INITIATED
+  KYC_COMPLETED
+  VERIFIED
+  REJECTED
+  FAILED
+  MOVE_OUT_UPDATED
+}
+
 model Kyc {
   id           String        @id @default(uuid())
   userId       String        @unique
@@ -510,6 +520,7 @@ model Tenancy {
   moveIn              MoveIn?
   exitRequest         ExitRequest?
   agreement           Agreement?
+  policeVerification  PoliceVerification?
 
   @@map("Tenancy")
 }
@@ -810,6 +821,22 @@ model MoveIn {
   inspections MoveInInspection[]
 
   @@map("MoveIn")
+}
+
+model PoliceVerification {
+  id              String                   @id @default(uuid())
+  tenancyId       String                   @unique
+  tenancy         Tenancy                  @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+  status          PoliceVerificationStatus @default(NOT_STARTED)
+  aadhaarNumber   String?
+  otpVerified     Boolean                  @default(false)
+  providerRef     String?
+  reportUrl       String?
+  moveOutNotes    String?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@map("PoliceVerification")
 }
 
 model MoveInChecklistItem {

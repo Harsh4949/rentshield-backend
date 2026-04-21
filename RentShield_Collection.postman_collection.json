@@ -182,6 +182,66 @@
 					}
 				}
 			]
+		},
+		{
+			"name": "06. Police & Trust Verification",
+			"item": [
+				{
+					"name": "Initiate Verification (Aadhaar OTP)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tenancyId\": \"{{tenancyId}}\",\n    \"aadhaarNumber\": \"123456789012\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/police-verification/initiate", "host": ["{{baseUrl}}"], "path": ["police-verification", "initiate"] }
+					}
+				},
+				{
+					"name": "Verify Aadhaar OTP",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tenancyId\": \"{{tenancyId}}\",\n    \"otp\": \"123456\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/police-verification/verify-otp", "host": ["{{baseUrl}}"], "path": ["police-verification", "verify-otp"] }
+					}
+				},
+				{
+					"name": "Complete/Mark Verified (Service Provider Hook)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reportUrl\": \"https://provider.com/reports/abc-123.pdf\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/police-verification/{{tenancyId}}/complete", "host": ["{{baseUrl}}"], "path": ["police-verification", "{{tenancyId}}", "complete"] }
+					}
+				},
+				{
+					"name": "Check Verification Status",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}" }
+						],
+						"url": { "raw": "{{baseUrl}}/police-verification/{{tenancyId}}", "host": ["{{baseUrl}}"], "path": ["police-verification", "{{tenancyId}}"] }
+					}
+				}
+			]
 		}
 	],
 	"variable": [

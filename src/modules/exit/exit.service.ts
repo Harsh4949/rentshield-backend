@@ -147,6 +147,20 @@ export const exitService = {
           where: { id: exitReq.tenancyId },
           data: { status: 'TERMINATED', endDate: exitReq.desiredMoveOutDate },
         });
+
+        // Update Police Verification Status at Move-out
+        try {
+          await prisma.policeVerification.update({
+            where: { tenancyId: exitReq.tenancyId },
+            data: { 
+              status: 'MOVE_OUT_UPDATED',
+              moveOutNotes: `Completed move-out process on ${new Date().toISOString()}`
+            }
+          });
+        } catch (e) {
+          // If no verification record exists, skip or log (some old tenancies might not have it)
+          console.error('Could not update police verification status at move-out:', e);
+        }
       }
     }
 
