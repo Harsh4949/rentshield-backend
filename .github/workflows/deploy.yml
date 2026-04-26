@@ -1,0 +1,99 @@
+name: Deploy RentShield Backend to EC2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-rentshield-backend
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Prepare deployment package
+        run: |
+          mkdir -p deploy
+          cp -r dist deploy/
+          cp -r prisma deploy/
+          cp prisma.config.ts deploy/
+          cp package.json deploy/
+          cp package-lock.json deploy/
+          cp ecosystem.config.cjs deploy/
+          tar -czf deploy.tar.gz -C deploy .
+
+      - name: Upload deployment artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-package
+          path: deploy.tar.gz
+          retention-days: 1
+
+  deploy:
+    name: Deploy to EC2
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download deployment artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-package
+          path: artifact
+
+      - name: Deploy via SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          echo "$EC2_SSH_KEY" > private_key.pem
+          chmod 600 private_key.pem
+
+          scp -i private_key.pem -o StrictHostKeyChecking=no artifact/deploy.tar.gz ${EC2_USERNAME}@${EC2_HOST}:/tmp/
+
+          ssh -i private_key.pem -o StrictHostKeyChecking=no ${EC2_USERNAME}@${EC2_HOST} << 'EOF'
+            set -e
+
+            cd /var/www/express-app
+            tar --overwrite -xzf /tmp/deploy.tar.gz -C /var/www/express-app
+            rm /tmp/deploy.tar.gz
+
+            npm ci
+            npx prisma generate
+
+            mkdir -p logs
+
+            if pm2 describe rentshield-backend >/dev/null 2>&1; then
+              pm2 reload ecosystem.config.cjs --env production --update-env
+            else
+              pm2 start ecosystem.config.cjs --env production
+            fi
+
+            pm2 save
+          EOF
+
+          rm -f private_key.pem
