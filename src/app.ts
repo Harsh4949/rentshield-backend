@@ -6,6 +6,7 @@ import 'express-async-errors';
 import { json, urlencoded } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import { specs } from './config/swagger';
+import { config } from './config';
 import { propertyRouter } from './modules/property/property.router';
 import { searchRouter } from './modules/search/search.router';
 import { authRouter } from './modules/auth/auth.router';
@@ -26,6 +27,8 @@ import { noticeRouter } from './modules/notice/notice.router';
 import { expertRouter } from './modules/expert/expert.router';
 import { agreementRouter } from './modules/agreement/agreement.router';
 import policeVerificationRouter from './modules/police-verification/police-verification.router';
+import { profileRouter } from './modules/profile/profile.router';
+import { notificationsRouter } from './modules/notifications/notifications.router';
 import { errorHandler } from './shared/middleware/errorHandler';
 
 const app = express();
@@ -70,9 +73,16 @@ app.use('/api/notices', noticeRouter);
 app.use('/api/experts', expertRouter);
 app.use('/api/agreements', agreementRouter);
 app.use('/api/police-verification', policeVerificationRouter);
+app.use('/api/profile', profileRouter);
+app.use('/api/notifications', notificationsRouter);
 
 // API Documentation
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(specs));
+
+// Default route
+app.get('/', (_req, res) => {
+  res.status(200).json({ message: `Server running on port ${config.server.port}` });
+});
 
 // Health check
 app.get('/api/health', (_req, res) => {

@@ -83,6 +83,12 @@ export const authService = {
     return {
       tempToken,
       sessionId: otp.id,
+      user: {
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      },
       message: 'OTP sent to your email'
     };
   },

@@ -24,6 +24,11 @@ const createFeatureSchema = Joi.object({
   moduleId: Joi.string().uuid().required(),
 });
 
+const updateFeatureSchema = Joi.object({
+  name: Joi.string().optional(),
+  description: Joi.string().optional(),
+});
+
 const assignFeatureSchema = Joi.object({
   featureId: Joi.string().uuid().required(),
 });
@@ -127,6 +132,17 @@ export const adminController = {
     }
   },
 
+  async updateFeature(req: Request, res: Response) {
+    try {
+      const { error, value } = updateFeatureSchema.validate(req.body);
+      if (error) return res.status(400).json({ error: error.details[0].message });
+      const feature = await adminService.updateFeature(req.params.id, value);
+      res.json({ feature });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
   // Role Management
   async listRoleFeatures(req: Request, res: Response) {
     try {
@@ -197,6 +213,24 @@ export const adminController = {
     }
   },
 
+  async updateUser(req: Request, res: Response) {
+    try {
+      const updated = await adminService.updateUser(req.params.id, req.body);
+      res.json({ user: updated });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  async deleteUser(req: Request, res: Response) {
+    try {
+      const result = await adminService.deleteUser(req.params.id);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
   // KYC Management
   async listKyc(req: Request, res: Response) {
     try {
@@ -245,11 +279,49 @@ export const adminController = {
     }
   },
 
+  async updateProperty(req: Request, res: Response) {
+    try {
+      const updated = await adminService.updateProperty(req.params.id, req.body);
+      res.json({ property: updated });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  async deleteProperty(req: Request, res: Response) {
+    try {
+      const result = await adminService.deleteProperty(req.params.id);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
   // Stats
   async getStats(req: Request, res: Response) {
     try {
       const stats = await adminService.getSystemStats();
       res.json({ stats });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  // Role Permissions Matrix
+  async getRolePermissionsMatrix(req: Request, res: Response) {
+    try {
+      const data = await adminService.getRolePermissionsMatrix();
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  // Seed default modules
+  async seedDefaultModules(req: Request, res: Response) {
+    try {
+      const result = await adminService.seedDefaultModules();
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

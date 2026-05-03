@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { policeVerificationController } from './police-verification.controller';
-import { authenticate } from '../../middleware/auth';
+import { authenticateToken } from '../../shared/middleware/auth';
 
 const router = Router();
 
-router.get('/:tenancyId', authenticate, policeVerificationController.getStatus);
-router.post('/initiate', authenticate, policeVerificationController.initiate);
-router.post('/verify-otp', authenticate, policeVerificationController.verifyOtp);
-router.patch('/:tenancyId/complete', authenticate, policeVerificationController.completeVerification);
+router.get('/:tenancyId', authenticateToken, policeVerificationController.getStatus);
+router.post('/initiate', authenticateToken, policeVerificationController.initiate);
+router.post('/verify-otp', authenticateToken, policeVerificationController.verifyOtp);
+router.patch('/:tenancyId/complete', authenticateToken, policeVerificationController.completeVerification);
 
 export default router;
