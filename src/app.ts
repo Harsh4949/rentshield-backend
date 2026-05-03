@@ -6,6 +6,7 @@ import 'express-async-errors';
 import { json, urlencoded } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import { specs } from './config/swagger';
+import { config } from './config';
 import { propertyRouter } from './modules/property/property.router';
 import { searchRouter } from './modules/search/search.router';
 import { authRouter } from './modules/auth/auth.router';
@@ -77,6 +78,11 @@ app.use('/api/notifications', notificationsRouter);
 
 // API Documentation
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(specs));
+
+// Default route
+app.get('/', (_req, res) => {
+  res.status(200).json({ message: `Server running on port ${config.server.port}` });
+});
 
 // Health check
 app.get('/api/health', (_req, res) => {

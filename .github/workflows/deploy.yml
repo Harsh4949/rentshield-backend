@@ -1,0 +1,169 @@
+name: Deploy RentShield Backend to EC2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-rentshield-backend
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Create deployment package
+        run: |
+          mkdir -p deploy
+          cp -r dist deploy/
+          cp -r prisma deploy/
+          cp prisma.config.ts deploy/
+          cp package*.json deploy/
+          cp ecosystem.config.cjs deploy/
+          [ -f .env.example ] && cp .env.example deploy/ || echo "No .env.example found"
+          tar -czf deploy.tar.gz -C deploy .
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-package
+          path: deploy.tar.gz
+          retention-days: 1
+
+  deploy:
+    name: Deploy to EC2
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-package
+          path: artifact
+
+      - name: Deploy to EC2 via SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          echo "$SSH_PRIVATE_KEY" > private_key.pem
+          chmod 600 private_key.pem
+
+          scp -i private_key.pem -o StrictHostKeyChecking=no \
+            artifact/deploy.tar.gz ${EC2_USERNAME}@${EC2_HOST}:/tmp/
+
+          ssh -i private_key.pem -o StrictHostKeyChecking=no \
+            ${EC2_USERNAME}@${EC2_HOST} << 'EOF'
+            set -e
+
+            cd /var/www/express-app
+
+            sudo chown -R $USER:$USER /var/www/express-app
+
+            if [ -d "dist" ]; then
+              timestamp=$(date +%Y%m%d_%H%M%S)
+              mkdir -p backups
+              tar -czf backups/backup_${timestamp}.tar.gz dist prisma package.json package-lock.json ecosystem.config.cjs .env 2>/dev/null || true
+              ls -t backups/backup_*.tar.gz 2>/dev/null | tail -n +6 | xargs -r rm
+            fi
+
+            tar --overwrite -xzf /tmp/deploy.tar.gz -C /var/www/express-app
+            rm /tmp/deploy.tar.gz
+
+            sudo chown -R $USER:$USER /var/www/express-app
+
+            npm ci
+            npx prisma generate
+
+            mkdir -p logs
+
+            if pm2 describe rentshield-backend > /dev/null 2>&1; then
+              pm2 reload ecosystem.config.cjs --env production --update-env
+            else
+              pm2 start ecosystem.config.cjs --env production
+            fi
+
+            pm2 save
+          EOF
+
+          rm private_key.pem
+
+      - name: Verify deployment
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          echo "Waiting for application to start..."
+          sleep 10
+
+          for i in {1..3}; do
+            echo "Attempt $i of 3..."
+            response=$(curl -s -o /dev/null -w "%{http_code}" http://${EC2_HOST} 2>/dev/null || echo "000")
+
+            if [ "$response" = "200" ] || [ "$response" = "301" ] || [ "$response" = "302" ]; then
+              echo "Deployment successful. App responded with status: $response"
+              exit 0
+            fi
+
+            echo "Got response: $response, waiting 5 seconds..."
+            sleep 5
+          done
+
+          echo "Deployment verification failed"
+          exit 1
+
+      - name: Rollback on failure
+        if: failure()
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          echo "Attempting rollback to latest backup..."
+
+          echo "$SSH_PRIVATE_KEY" > private_key.pem
+          chmod 600 private_key.pem
+
+          ssh -i private_key.pem -o StrictHostKeyChecking=no \
+            ${EC2_USERNAME}@${EC2_HOST} << 'EOF'
+            set -e
+            cd /var/www/express-app
+
+            sudo chown -R $USER:$USER /var/www/express-app
+
+            latest_backup=$(ls -t backups/backup_*.tar.gz 2>/dev/null | head -1)
+            if [ -n "$latest_backup" ]; then
+              tar -xzf "$latest_backup" -C /var/www/express-app
+              npm ci
+              npx prisma generate
+              pm2 reload ecosystem.config.cjs --env production --update-env
+              pm2 save
+              echo "Rollback completed"
+            else
+              echo "No backup found, rollback skipped"
+            fi
+          EOF
+
+          rm private_key.pem
