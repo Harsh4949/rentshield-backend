@@ -3,7 +3,9 @@ import { config } from './index';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
-const connectionString = `postgresql://${config.database.user}:${config.database.password}@${config.database.host}:${config.database.port}/${config.database.name}`;
+const connectionString =
+	process.env.DATABASE_URL?.trim() ||
+	`postgresql://${config.database.user}:${config.database.password}@${config.database.host}:${config.database.port}/${config.database.name}`;
 
 // For direct database connection (not Accelerate)
 const pool = new Pool({ connectionString });

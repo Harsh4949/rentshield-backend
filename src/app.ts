@@ -26,6 +26,8 @@ import { noticeRouter } from './modules/notice/notice.router';
 import { expertRouter } from './modules/expert/expert.router';
 import { agreementRouter } from './modules/agreement/agreement.router';
 import policeVerificationRouter from './modules/police-verification/police-verification.router';
+import { profileRouter } from './modules/profile/profile.router';
+import { notificationsRouter } from './modules/notifications/notifications.router';
 import { errorHandler } from './shared/middleware/errorHandler';
 
 const app = express();
@@ -70,6 +72,8 @@ app.use('/api/notices', noticeRouter);
 app.use('/api/experts', expertRouter);
 app.use('/api/agreements', agreementRouter);
 app.use('/api/police-verification', policeVerificationRouter);
+app.use('/api/profile', profileRouter);
+app.use('/api/notifications', notificationsRouter);
 
 // API Documentation
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(specs));

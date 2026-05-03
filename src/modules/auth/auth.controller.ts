@@ -16,6 +16,27 @@ const loginSchema = Joi.object({
   password: Joi.string().required(),
 });
 
+// ─── Map module slugs to navigation items ──────────────────────────────────────
+const ALL_NAV_ITEMS: Record<string, { label: string, route: string, icon: string }> = {
+  'property': { label: 'Properties', route: 'property', icon: 'search' },
+  'tenancies': { label: 'Tenancies', route: 'tenancies', icon: 'shield' },
+  'agreements': { label: 'Agreements', route: 'agreements', icon: 'file-text' },
+  'experts': { label: 'Experts', route: 'experts', icon: 'user' },
+  'maintenance': { label: 'Maintenance', route: 'maintenance', icon: 'hammer' },
+  'finance': { label: 'Payments', route: 'finance', icon: 'wallet' },
+  'chat': { label: 'Chat', route: 'chat', icon: 'message-square' },
+  'dispute': { label: 'Disputes', route: 'dispute', icon: 'alert-triangle' },
+  'support': { label: 'Support', route: 'support', icon: 'help-circle' },
+  'notices': { label: 'Notices', route: 'notices', icon: 'layout-grid' },
+  'notifications': { label: 'Notifications', route: 'notifications', icon: 'bell' },
+  'kyc': { label: 'KYC', route: 'kyc', icon: 'shield' },
+  'exit': { label: 'Exit', route: 'exit', icon: 'file-text' },
+  'society': { label: 'Society', route: 'society', icon: 'users' },
+  'admin': { label: 'Admin Panel', route: 'admin', icon: 'layout-grid' },
+  'profile': { label: 'Profile', route: 'profile', icon: 'settings' },
+  'documents': { label: 'Documents', route: 'documents', icon: 'file-text' }
+};
+
 /**
  * Helper to consolidate all data a frontend needs for the dashboard
  */
@@ -24,14 +45,23 @@ async function getDashboardPayload(userId: string) {
   const capabilities = await permissionService.getUserCapabilities(userId);
   
   const navigation: any[] = [];
-  if (user.role === 'TENANT') {
-    navigation.push({ label: 'Dashboard', route: '/tenant/dashboard', icon: 'dashboard' });
-    navigation.push({ label: 'My Rent', route: '/tenant/payments', icon: 'payment' });
-    navigation.push({ label: 'Marketplace', route: '/tenant/experts', icon: 'build' });
-    navigation.push({ label: 'Documents', route: '/tenant/documents', icon: 'folder' });
-  } else if (user.role === 'PLATFORM_ADMIN') {
-    navigation.push({ label: 'Admin Panel', route: '/admin/dashboard', icon: 'admin_panel_settings' });
-    navigation.push({ label: 'Module Control', route: '/admin/modules', icon: 'settings' });
+  
+  // Build navigation dynamically from capabilities
+  for (const moduleSlug of capabilities.modules) {
+    const slug = moduleSlug.toLowerCase();
+    if (ALL_NAV_ITEMS[slug]) {
+      navigation.push(ALL_NAV_ITEMS[slug]);
+    }
+  }
+
+  // Always include profile if they are logged in, even if not explicitly in module list
+  if (!navigation.find(n => n.route === 'profile')) {
+    navigation.push(ALL_NAV_ITEMS['profile']);
+  }
+
+  // Always include Home/Dashboard at the very top for all roles
+  if (!navigation.find(n => n.route === '')) {
+    navigation.unshift({ label: 'Dashboard', route: '', icon: 'layout-dashboard' });
   }
 
   const token = authService.generateToken({ id: user.id, email: user.email, role: user.role });
@@ -39,11 +69,11 @@ async function getDashboardPayload(userId: string) {
   return {
     user,
     token,
-    capabilities,
     uiConfig: {
       navigation,
-      activeModules: capabilities.modules,
-    }
+      activeModules: capabilities.modules.map(id => ({ id, name: id })),
+    },
+    capabilities
   };
 }
 
@@ -139,4 +169,4 @@ export const authController = {
       res.status(400).json({ error: error.message });
     }
   }
-};
+};

@@ -24,6 +24,10 @@ model User {
   role      UserRole @default(TENANT)
   isActive  Boolean  @default(true)
   is2faEnabled Boolean @default(true)
+  avatar      String?
+  phoneNumber String?
+  address     String?
+  dateOfBirth DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -57,6 +61,8 @@ model User {
   amenityBookings     AmenityBooking[]
   otpSessions         OtpSession[]
 
+  @@index([email])
+  @@index([id])
   @@map("User")
 }
 
@@ -257,6 +263,8 @@ model Kyc {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
+  @@index([id])
+  @@index([userId])
   @@map("Kyc")
 }
 

@@ -219,6 +219,42 @@ adminRouter.post('/features', adminController.createFeature);
 /**
  * @swagger
  * /admin/features/{id}:
+ *   patch:
+ *     summary: Update feature details
+ *     tags: [Admin]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Feature updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 feature:
+ *                   $ref: '#/components/schemas/Feature'
+ */
+adminRouter.patch('/features/:id', adminController.updateFeature);
+
+/**
+ * @swagger
+ * /admin/features/{id}:
  *   delete:
  *     summary: Delete a feature
  *     tags: [Admin]
@@ -406,6 +442,8 @@ adminRouter.patch('/users/:id/role', adminController.updateUserRole);
  *                   $ref: '#/components/schemas/User'
  */
 adminRouter.patch('/users/:id/status', adminController.updateUserStatus);
+adminRouter.patch('/users/:id', adminController.updateUser);
+adminRouter.delete('/users/:id', adminController.deleteUser);
 
 /**
  * @swagger
@@ -516,6 +554,8 @@ adminRouter.get('/properties', adminController.listProperties);
  *         description: Property publish status updated
  */
 adminRouter.patch('/properties/:id/toggle-publish', adminController.togglePropertyPublish);
+adminRouter.patch('/properties/:id', adminController.updateProperty);
+adminRouter.delete('/properties/:id', adminController.deleteProperty);
 
 /**
  * @swagger
@@ -540,3 +580,27 @@ adminRouter.patch('/properties/:id/toggle-publish', adminController.toggleProper
  *                     revenue: { type: number }
  */
 adminRouter.get('/stats', adminController.getStats);
+
+/**
+ * @swagger
+ * /admin/roles/matrix:
+ *   get:
+ *     summary: Get full role-permissions matrix (all roles × all features)
+ *     tags: [Admin]
+ *     responses:
+ *       200:
+ *         description: Role permissions matrix
+ */
+adminRouter.get('/roles/matrix', adminController.getRolePermissionsMatrix);
+
+/**
+ * @swagger
+ * /admin/modules/seed:
+ *   post:
+ *     summary: Seed default platform modules into the database if none exist
+ *     tags: [Admin]
+ *     responses:
+ *       200:
+ *         description: Seed result
+ */
+adminRouter.post('/modules/seed', adminController.seedDefaultModules);
